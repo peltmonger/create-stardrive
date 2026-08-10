@@ -114,7 +114,7 @@ function removeBlog(targetDir: string): void {
 
   editFile(targetDir, "theme.config.ts", (content) => {
     const withoutSection = removeBraceBlock(content, /^[ \t]*articles:\s*\{/m);
-    const withoutComment = removeLines(withoutSection, /^\s*\/\/ content\/article settings\s*$/);
+    const withoutComment = removeLines(withoutSection, /^\s*\/\/ content\/articles settings\s*$/);
     return removeLines(withoutComment, /^\s*addArticles:/);
   });
 
@@ -216,8 +216,11 @@ function removeEvents(targetDir: string): void {
   });
 
   editFile(targetDir, "theme.config.ts", (content) => {
-    const withoutSection = removeBraceBlock(content, /^[ \t]*dynamicEvents:\s*\{/m);
-    const withoutComment = removeLines(withoutSection, /^\s*\/\/ you can also dynamically integrate events.*$/m);
+    const withoutSection = removeBraceBlock(content, /^[ \t]*events:\s*\{/m);
+    const withoutComment = removeLines(
+      withoutSection,
+      /^\s*\/\/ content\/events settings\s*$/,
+    );
     return removeLines(withoutComment, /^\s*addEvents:/);
   });
 

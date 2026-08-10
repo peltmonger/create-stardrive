@@ -12,7 +12,8 @@ const TRIM_ENTRIES = [
   "SECURITY.md",
   "CHANGELOG.md",
   "repository-header.png",
-  ".github"
+  ".github",
+  "public/.well-known/agent-skills"
 ];
 
 const STALE_LOCKFILES = [

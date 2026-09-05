@@ -128,7 +128,7 @@ function removeBlog(targetDir: string): void {
     if (pkg.dependencies) delete pkg.dependencies["reading-time"];
     if (pkg.devDependencies) delete pkg.devDependencies["reading-time"];
 
-    fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+    fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
   }
 
   editFile(targetDir, "astro.config.ts", (content) =>
@@ -142,8 +142,7 @@ function removeBlog(targetDir: string): void {
             .filter((entry) => entry.length > 0 && entry !== "'reading-time'");
           return `${prefix}${items.join(", ")}]`;
         },
-      )
-      .replace(/,\s*\]/, "]"),
+      ),
   );
 }
 
@@ -279,11 +278,16 @@ interface PackageJson {
 function removeCloudflare(targetDir: string): void {
   removePaths(targetDir, [
     "scripts/purgeCloudflareCache.js",
+    "scripts/fixWranglerConfig.js",
     "worker-configuration.d.ts",
     "wrangler.jsonc",
     "public/_headers",
     "public/_redirects",
   ]);
+
+  editFile(targetDir, "scripts/postbuild.js", (content) =>
+    removeLines(content, /await import\(['"]\.\/fixWranglerConfig\.js['"]\);/),
+  );
 
   editFile(targetDir, "astro.config.ts", (content) => {
     const withoutImport = removeLines(
@@ -301,7 +305,16 @@ function removeCloudflare(targetDir: string): void {
       fs.readFileSync(packageJsonPath, "utf8"),
     ) as PackageJson;
 
-    if (pkg.scripts) delete pkg.scripts["purge:cloudflare"];
+    if (pkg.scripts) {
+      delete pkg.scripts["purge:cloudflare"];
+      delete pkg.scripts["generate-types"];
+      if (pkg.scripts["check:type"]) {
+        pkg.scripts["check:type"] = pkg.scripts["check:type"].replace(
+          "npm run generate-types && ",
+          "",
+        );
+      }
+    }
     if (pkg.dependencies) {
       delete pkg.dependencies["@astrojs/cloudflare"];
       delete pkg.dependencies["wrangler"];
@@ -311,7 +324,7 @@ function removeCloudflare(targetDir: string): void {
       delete pkg.devDependencies["wrangler"];
     }
 
-    fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+    fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
   }
 }
 
@@ -357,6 +370,29 @@ async function confirm(
   return answer === "y" || answer === "yes";
 }
 
+export function applyFeatureRemovals(
+  targetDir: string,
+  dropped: string[],
+): void {
+  const removed = new Set(dropped);
+
+  if (removed.has("blog")) removeBlog(targetDir);
+  if (removed.has("faq")) removeFaq(targetDir);
+  if (removed.has("integrations")) removeIntegration(targetDir);
+  if (removed.has("events")) removeEvents(targetDir);
+
+  cleanupNav(targetDir, {
+    blog: removed.has("blog"),
+    faq: removed.has("faq"),
+    integration: removed.has("integrations"),
+    events: removed.has("events"),
+  });
+  cleanupContentConfig(targetDir);
+
+  if (removed.has("cloudflare")) removeCloudflare(targetDir);
+  updateDroppedFeatures(targetDir, dropped);
+}
+
 export async function configureFeatures(targetDir: string): Promise<void> {
   step("Configuring optional features");
 
@@ -371,53 +407,34 @@ export async function configureFeatures(targetDir: string): Promise<void> {
   try {
     const keepBlog = await confirm(rl, "Keep the blog feature?");
     if (!keepBlog) {
-      removeBlog(targetDir);
-      ok("Removed the blog feature");
       dropped.push("blog");
     }
 
     const keepFaq = await confirm(rl, "Keep the FAQ feature?");
     if (!keepFaq) {
-      removeFaq(targetDir);
-      ok("Removed the FAQ feature");
       dropped.push("faq");
     }
 
     const keepIntegration = await confirm(rl, "Keep the integration catalog?");
     if (!keepIntegration) {
-      removeIntegration(targetDir);
-      ok("Removed the integration catalog");
       dropped.push("integrations");
     }
 
     const keepEvents = await confirm(rl, "Keep the events feature?");
     if (!keepEvents) {
-      removeEvents(targetDir);
-      ok("Removed the events feature");
       dropped.push("events");
     }
-
-    cleanupNav(targetDir, {
-      blog: !keepBlog,
-      faq: !keepFaq,
-      integration: !keepIntegration,
-      events: !keepEvents,
-    });
-
-    cleanupContentConfig(targetDir);
 
     const useCloudflare = await confirm(
       rl,
       "Will you host on Cloudflare Workers?",
     );
     if (!useCloudflare) {
-      removeCloudflare(targetDir);
-      ok("Removed Cloudflare-specific setup");
       dropped.push("cloudflare");
     }
 
-    updateDroppedFeatures(targetDir, dropped);
     if (dropped.length > 0) {
+      applyFeatureRemovals(targetDir, dropped);
       ok(`Recorded dropped features: ${dropped.join(", ")}`);
     }
   } finally {

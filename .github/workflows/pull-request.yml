@@ -1,0 +1,33 @@
+name: Pull request validation
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install CLI dependencies
+        run: npm ci
+      - name: Typecheck CLI
+        run: npm run typecheck
+      - name: Build CLI
+        run: npm run build
+      - name: Smoke generated Stardrive project
+        run: node scripts/smoke-generated-project.mjs ${{ matrix.os == 'windows-latest' && '--skip-install' || '' }}

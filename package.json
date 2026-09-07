@@ -1,6 +1,6 @@
 {
   "name": "create-stardrive",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "This is the launchpad application to create the Astro Stardrive boilerplate.",
   "bin": {
     "create-stardrive": "bin/index.js"
@@ -53,6 +53,6 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "esbuild": "^0.28.2",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }

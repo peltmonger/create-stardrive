@@ -107,7 +107,7 @@ export function calibratePackageJson(
     pkg.packageManager = `bun@${execSync("bun --version").toString().trim()}`;
   }
 
-  fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+  fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
   ok(`Named your ship ${c.bold(projectName)}`);
 }
 

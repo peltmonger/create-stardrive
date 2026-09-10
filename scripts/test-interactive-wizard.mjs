@@ -31,10 +31,8 @@ esac
 execFileSync(process.execPath, ["build.mjs"], { cwd: repoRoot });
 
 const command = `${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(repoRoot, "bin/index.js"))} --version 1.5.9 --no-install`;
-const args = process.platform === "darwin"
-  ? ["-q", transcript, "sh", "-c", command]
-  : ["-qefc", command, transcript];
-const result = spawnSync("script", args, {
+const input = `${projectName}\nn\nn\nn\nn\nn\n`;
+const options = {
   cwd: fixtureRoot,
   env: {
     ...process.env,
@@ -42,14 +40,26 @@ const result = spawnSync("script", args, {
     TERM: "xterm",
     npm_config_user_agent: "npm/11.17.0 node/v26.4.0 darwin x64",
   },
-  input: `${projectName}\nn\nn\nn\nn\nn\n`,
   encoding: "utf8",
   timeout: 10_000,
-});
+};
+const result = process.platform === "darwin"
+  ? (() => {
+      const inputFile = path.join(fixtureRoot, "input");
+      const inputPipe = path.join(fixtureRoot, "input.pipe");
+      fs.writeFileSync(inputFile, input);
+      const scriptCommand = [
+        `mkfifo ${JSON.stringify(inputPipe)}`,
+        `(exec 3>${JSON.stringify(inputPipe)}; while ! grep -q ${JSON.stringify("Project name:")} ${JSON.stringify(transcript)}; do sleep 1; done; cat ${JSON.stringify(inputFile)} >&3; exec 3>&-) &`,
+        `script -q -t 0 ${JSON.stringify(transcript)} sh -c ${JSON.stringify(command)} < ${JSON.stringify(inputPipe)}`,
+      ].join("\n");
+      return spawnSync("sh", ["-c", scriptCommand], options);
+    })()
+  : spawnSync("script", ["-qefc", command, transcript], { ...options, input });
 
 assert.equal(result.error, undefined, `wizard timed out: ${result.error?.message ?? "unknown error"}`);
+assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
 const output = fs.readFileSync(transcript, "utf8");
-assert.equal(result.status, 0, `${result.stderr}\n${output}`);
 for (const prompt of [
   "Project name:",
   "Keep the blog feature?",

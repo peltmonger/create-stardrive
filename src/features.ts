@@ -3,6 +3,7 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { c, info, ok, step } from "./logger.js";
+import type { Prompt } from "./prompt.js";
 
 function removePaths(targetDir: string, entries: string[]): void {
   for (const entry of entries) {
@@ -355,7 +356,7 @@ function updateDroppedFeatures(targetDir: string, features: string[]): void {
 }
 
 async function confirm(
-  rl: readline.Interface,
+  rl: Prompt,
   question: string,
   defaultYes = true,
 ): Promise<boolean> {
@@ -393,15 +394,18 @@ export function applyFeatureRemovals(
   updateDroppedFeatures(targetDir, dropped);
 }
 
-export async function configureFeatures(targetDir: string): Promise<void> {
+export async function collectFeatureRemovals(
+  prompt?: Prompt,
+): Promise<string[]> {
   step("Configuring optional features");
 
   if (!input.isTTY) {
     info("Non-interactive shell detected; keeping all features.");
-    return;
+    return [];
   }
 
-  const rl = readline.createInterface({ input, output });
+  const ownPrompt = prompt === undefined;
+  const rl = prompt ?? readline.createInterface({ input, output });
   const dropped: string[] = [];
 
   try {
@@ -433,11 +437,14 @@ export async function configureFeatures(targetDir: string): Promise<void> {
       dropped.push("cloudflare");
     }
 
-    if (dropped.length > 0) {
-      applyFeatureRemovals(targetDir, dropped);
-      ok(`Recorded dropped features: ${dropped.join(", ")}`);
-    }
+    return dropped;
   } finally {
-    rl.close();
+    if (ownPrompt) rl.close();
   }
+}
+
+export function configureFeatures(targetDir: string, dropped: string[]): void {
+  if (dropped.length === 0) return;
+  applyFeatureRemovals(targetDir, dropped);
+  ok(`Recorded dropped features: ${dropped.join(", ")}`);
 }

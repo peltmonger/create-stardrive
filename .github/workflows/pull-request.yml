@@ -29,5 +29,24 @@ jobs:
         run: npm run typecheck
       - name: Build CLI
         run: npm run build
+      - name: PTY wizard regression
+        if: runner.os != 'Windows'
+        run: npm test
       - name: Smoke generated Stardrive project
         run: node scripts/smoke-generated-project.mjs ${{ matrix.os == 'windows-latest' && '--skip-install' || '' }}
+
+  macos-node-26-pty:
+    name: PTY wizard (macOS, Node 26.4.0)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up Node 26.4.0
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 26.4.0
+          cache: npm
+      - name: Install CLI dependencies
+        run: npm ci
+      - name: Run PTY wizard regression
+        run: npm test

@@ -233,6 +233,22 @@ function cleanupContentConfig(targetDir: string): void {
   const contentConfigPath = path.join(targetDir, "src/content.config.ts");
   if (!fs.existsSync(contentConfigPath)) return;
 
+  editFile(targetDir, "src/content.config.ts", (content) => {
+    const collections = content.match(
+      /export const collections\s*=\s*\{([^}]*)\}\s*;?/,
+    );
+    if (!collections) return content;
+
+    const httpUrlConsumers = ["articles", "events", "integration_options"];
+    const hasHttpUrlConsumer = httpUrlConsumers.some((name) =>
+      new RegExp(`\\b${name}\\b`).test(collections[1]!),
+    );
+
+    return hasHttpUrlConsumer
+      ? content
+      : removeBraceBlock(content, /const httpUrl = z\.url\(/);
+  });
+
   const content = fs.readFileSync(contentConfigPath, "utf8");
 
   // If the `collections` export body is empty (only whitespace), every

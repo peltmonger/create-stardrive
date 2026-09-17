@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
 import { c, fail } from "./logger.js";
+import { createPrompt } from "./prompt.js";
+import type { Prompt } from "./prompt.js";
 
 export function isValidProjectName(name: string): boolean {
   return /^[a-z0-9._-]+$/i.test(name) && !/^[._]/.test(name);
@@ -10,6 +10,7 @@ export function isValidProjectName(name: string): boolean {
 
 export async function askProjectName(
   initial: string | undefined,
+  prompt?: Prompt,
 ): Promise<string> {
   if (initial && isValidProjectName(initial)) {
     const targetDir = path.resolve(initial);
@@ -17,14 +18,15 @@ export async function askProjectName(
     fail(`Directory "${initial}" already exists.`);
   }
 
-  if (!input.isTTY) {
+  const ownPrompt = prompt === undefined;
+  const rl = prompt ?? createPrompt();
+
+  if (!rl) {
     fail(
       `Project name "${initial ?? ""}" is missing or invalid and stdin is not interactive.`,
     );
     process.exit(1);
   }
-
-  const rl = readline.createInterface({ input, output });
 
   try {
     while (true) {
@@ -55,6 +57,6 @@ export async function askProjectName(
       return name;
     }
   } finally {
-    rl.close();
+    if (ownPrompt) rl.close();
   }
 }

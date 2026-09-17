@@ -6,7 +6,7 @@ import {
   detectPackageManager,
   devCommands,
 } from "./package-manager.js";
-import { configureFeatures } from "./features.js";
+import { collectFeatureRemovals, configureFeatures } from "./features.js";
 import { askProjectName } from "./project-name.js";
 import { resolveTag } from "./release.js";
 import {
@@ -17,6 +17,7 @@ import {
   installDependencies,
   trimProject,
 } from "./scaffold.js";
+import { createPrompt } from "./prompt.js";
 
 const { positional, requestedVersion, skipInstall } = parseArgs(process.argv);
 
@@ -29,22 +30,26 @@ if (!commandExists(pm)) {
 
 console.log(banner);
 
-const projectName = await askProjectName(positional[0]);
-const targetDir = path.resolve(projectName);
+const prompt = createPrompt();
 
-step("Locating the latest Stardrive release");
-const tag = resolveTag(requestedVersion);
-ok(`Selected ${c.bold(tag)}`);
+try {
+  const projectName = await askProjectName(positional[0], prompt);
+  const droppedFeatures = await collectFeatureRemovals(prompt);
+  const targetDir = path.resolve(projectName);
 
-cloneRepo(tag, targetDir, projectName);
-trimProject(targetDir);
-calibratePackageJson(targetDir, projectName, pm);
-calibrateGitignore(targetDir, pm);
-await configureFeatures(targetDir);
-installDependencies(targetDir, projectName, pm, skipInstall);
-setAgentMode(targetDir);
+  step("Locating the latest Stardrive release");
+  const tag = resolveTag(requestedVersion);
+  ok(`Selected ${c.bold(tag)}`);
 
-console.log(`
+  cloneRepo(tag, targetDir, projectName);
+  trimProject(targetDir);
+  calibratePackageJson(targetDir, projectName, pm);
+  calibrateGitignore(targetDir, pm);
+  configureFeatures(targetDir, droppedFeatures);
+  installDependencies(targetDir, projectName, pm, skipInstall);
+  setAgentMode(targetDir);
+
+  console.log(`
 ${c.green("All systems go.")} ${c.dim("Pre-flight checklist complete.")}
 
   ${c.dim("$")} ${c.cyan(`cd ${projectName}`)}
@@ -52,3 +57,6 @@ ${c.green("All systems go.")} ${c.dim("Pre-flight checklist complete.")}
 
 ${c.bold("Happy launching!")} ${c.magenta("🚀")}
 `);
+} finally {
+  prompt?.close();
+}

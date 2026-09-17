@@ -3,6 +3,7 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { c, info, ok, step } from "./logger.js";
+import type { Prompt } from "./prompt.js";
 
 function removePaths(targetDir: string, entries: string[]): void {
   for (const entry of entries) {
@@ -128,7 +129,7 @@ function removeBlog(targetDir: string): void {
     if (pkg.dependencies) delete pkg.dependencies["reading-time"];
     if (pkg.devDependencies) delete pkg.devDependencies["reading-time"];
 
-    fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+    fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
   }
 
   editFile(targetDir, "astro.config.ts", (content) =>
@@ -142,8 +143,7 @@ function removeBlog(targetDir: string): void {
             .filter((entry) => entry.length > 0 && entry !== "'reading-time'");
           return `${prefix}${items.join(", ")}]`;
         },
-      )
-      .replace(/,\s*\]/, "]"),
+      ),
   );
 }
 
@@ -295,11 +295,16 @@ interface PackageJson {
 function removeCloudflare(targetDir: string): void {
   removePaths(targetDir, [
     "scripts/purgeCloudflareCache.js",
+    "scripts/fixWranglerConfig.js",
     "worker-configuration.d.ts",
     "wrangler.jsonc",
     "public/_headers",
     "public/_redirects",
   ]);
+
+  editFile(targetDir, "scripts/postbuild.js", (content) =>
+    removeLines(content, /await import\(['"]\.\/fixWranglerConfig\.js['"]\);/),
+  );
 
   editFile(targetDir, "astro.config.ts", (content) => {
     const withoutImport = removeLines(
@@ -317,7 +322,16 @@ function removeCloudflare(targetDir: string): void {
       fs.readFileSync(packageJsonPath, "utf8"),
     ) as PackageJson;
 
-    if (pkg.scripts) delete pkg.scripts["purge:cloudflare"];
+    if (pkg.scripts) {
+      delete pkg.scripts["purge:cloudflare"];
+      delete pkg.scripts["generate-types"];
+      if (pkg.scripts["check:type"]) {
+        pkg.scripts["check:type"] = pkg.scripts["check:type"].replace(
+          "npm run generate-types && ",
+          "",
+        );
+      }
+    }
     if (pkg.dependencies) {
       delete pkg.dependencies["@astrojs/cloudflare"];
       delete pkg.dependencies["wrangler"];
@@ -327,7 +341,7 @@ function removeCloudflare(targetDir: string): void {
       delete pkg.devDependencies["wrangler"];
     }
 
-    fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
+    fs.writeFileSync(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
   }
 }
 
@@ -358,7 +372,7 @@ function updateDroppedFeatures(targetDir: string, features: string[]): void {
 }
 
 async function confirm(
-  rl: readline.Interface,
+  rl: Prompt,
   question: string,
   defaultYes = true,
 ): Promise<boolean> {
@@ -373,70 +387,80 @@ async function confirm(
   return answer === "y" || answer === "yes";
 }
 
-export async function configureFeatures(targetDir: string): Promise<void> {
+export function applyFeatureRemovals(
+  targetDir: string,
+  dropped: string[],
+): void {
+  const removed = new Set(dropped);
+
+  if (removed.has("blog")) removeBlog(targetDir);
+  if (removed.has("faq")) removeFaq(targetDir);
+  if (removed.has("integrations")) removeIntegration(targetDir);
+  if (removed.has("events")) removeEvents(targetDir);
+
+  cleanupNav(targetDir, {
+    blog: removed.has("blog"),
+    faq: removed.has("faq"),
+    integration: removed.has("integrations"),
+    events: removed.has("events"),
+  });
+  cleanupContentConfig(targetDir);
+
+  if (removed.has("cloudflare")) removeCloudflare(targetDir);
+  updateDroppedFeatures(targetDir, dropped);
+}
+
+export async function collectFeatureRemovals(
+  prompt?: Prompt,
+): Promise<string[]> {
   step("Configuring optional features");
 
   if (!input.isTTY) {
     info("Non-interactive shell detected; keeping all features.");
-    return;
+    return [];
   }
 
-  const rl = readline.createInterface({ input, output });
+  const ownPrompt = prompt === undefined;
+  const rl = prompt ?? readline.createInterface({ input, output });
   const dropped: string[] = [];
 
   try {
     const keepBlog = await confirm(rl, "Keep the blog feature?");
     if (!keepBlog) {
-      removeBlog(targetDir);
-      ok("Removed the blog feature");
       dropped.push("blog");
     }
 
     const keepFaq = await confirm(rl, "Keep the FAQ feature?");
     if (!keepFaq) {
-      removeFaq(targetDir);
-      ok("Removed the FAQ feature");
       dropped.push("faq");
     }
 
     const keepIntegration = await confirm(rl, "Keep the integration catalog?");
     if (!keepIntegration) {
-      removeIntegration(targetDir);
-      ok("Removed the integration catalog");
       dropped.push("integrations");
     }
 
     const keepEvents = await confirm(rl, "Keep the events feature?");
     if (!keepEvents) {
-      removeEvents(targetDir);
-      ok("Removed the events feature");
       dropped.push("events");
     }
-
-    cleanupNav(targetDir, {
-      blog: !keepBlog,
-      faq: !keepFaq,
-      integration: !keepIntegration,
-      events: !keepEvents,
-    });
-
-    cleanupContentConfig(targetDir);
 
     const useCloudflare = await confirm(
       rl,
       "Will you host on Cloudflare Workers?",
     );
     if (!useCloudflare) {
-      removeCloudflare(targetDir);
-      ok("Removed Cloudflare-specific setup");
       dropped.push("cloudflare");
     }
 
-    updateDroppedFeatures(targetDir, dropped);
-    if (dropped.length > 0) {
-      ok(`Recorded dropped features: ${dropped.join(", ")}`);
-    }
+    return dropped;
   } finally {
-    rl.close();
+    if (ownPrompt) rl.close();
   }
+}
+
+export function configureFeatures(targetDir: string, dropped: string[]): void {
+  if (dropped.length === 0) return;
+  applyFeatureRemovals(targetDir, dropped);
+  ok(`Recorded dropped features: ${dropped.join(", ")}`);
 }

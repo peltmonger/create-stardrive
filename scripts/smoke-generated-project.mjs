@@ -94,6 +94,13 @@ function assertTrimmedProject() {
   assert.equal(trimmedPackage.scripts["generate-types"], undefined);
   assert.equal(trimmedPackage.scripts["check:type"], "tsc --noEmit");
 
+  const footerNav = fs.readFileSync(path.join(fixtureDir, "src/components/layout/nav/footer-nav.astro"), "utf8");
+  assert.equal(
+    (footerNav.match(/<a\b/g) ?? []).length,
+    (footerNav.match(/<\/a>/g) ?? []).length,
+    "trimmed footer navigation should not leave orphaned anchors",
+  );
+
   const themeConfig = fs.readFileSync(path.join(fixtureDir, "theme.config.ts"), "utf8");
   assert.match(themeConfig, /droppedFeatures: \['blog', 'faq', 'integrations', 'events', 'cloudflare'\]/);
 }

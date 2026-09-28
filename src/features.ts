@@ -277,11 +277,12 @@ function cleanupNav(
   if (routes.length === 0) return;
 
   const pattern = new RegExp(
-    `getLocaleUrl\\(['"](?:${routes.join("|")})['"]`,
+    `\\n\\s*<a\\b[^>]*\\bhref=\\{getLocaleUrl\\(['"](?:${routes.join("|")})['"]\\s*,\\s*locale\\)\\}[^>]*>\\s*\\{t\\([^\\n]*\\)\\}\\s*</a>`,
+    "g",
   );
 
   editFile(targetDir, "src/components/layout/nav/footer-nav.astro", (content) =>
-    removeLines(content, pattern),
+    content.replace(pattern, ""),
   );
 }
 

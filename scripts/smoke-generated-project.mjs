@@ -6,7 +6,7 @@ import path from "node:path";
 import { build } from "esbuild";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
-const latestTag = "1.5.9";
+const latestTag = "1.5.15";
 const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-stardrive-smoke-"));
 const fixtureName = "stardrive-smoke";
 const fixtureDir = path.join(fixtureRoot, fixtureName);
@@ -93,6 +93,13 @@ function assertTrimmedProject() {
   const trimmedPackage = readPackageJson();
   assert.equal(trimmedPackage.scripts["generate-types"], undefined);
   assert.equal(trimmedPackage.scripts["check:type"], "tsc --noEmit");
+
+  const footerNav = fs.readFileSync(path.join(fixtureDir, "src/components/layout/nav/footer-nav.astro"), "utf8");
+  assert.equal(
+    (footerNav.match(/<a\b/g) ?? []).length,
+    (footerNav.match(/<\/a>/g) ?? []).length,
+    "trimmed footer navigation should not leave orphaned anchors",
+  );
 
   const themeConfig = fs.readFileSync(path.join(fixtureDir, "theme.config.ts"), "utf8");
   assert.match(themeConfig, /droppedFeatures: \['blog', 'faq', 'integrations', 'events', 'cloudflare'\]/);

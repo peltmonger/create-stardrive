@@ -6,7 +6,7 @@ import path from "node:path";
 import { build } from "esbuild";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
-const latestTag = "1.5.14";
+const latestTag = "1.5.15";
 const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-stardrive-smoke-"));
 const fixtureName = "stardrive-smoke";
 const fixtureDir = path.join(fixtureRoot, fixtureName);

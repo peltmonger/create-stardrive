@@ -6,7 +6,9 @@ import path from "node:path";
 import { build } from "esbuild";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
-const latestTag = "1.5.15";
+// Pin a released boilerplate for reproducible compatibility checks.
+// Refresh this baseline when a Stardrive release changes generated-project behavior.
+const boilerplateVersion = "1.7.0";
 const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-stardrive-smoke-"));
 const fixtureName = "stardrive-smoke";
 const fixtureDir = path.join(fixtureRoot, fixtureName);
@@ -32,6 +34,7 @@ function assertDefaultProject() {
   assert.equal(pkg.name, fixtureName);
   assert.equal(pkg.scripts["sync-version"], undefined);
   assert.equal(pkg.scripts.prebuild, undefined);
+  assert.equal(pkg.scripts["check:artifacts"], undefined, "boilerplate-only artifact checks should not ship to generated sites");
 
   for (const entry of [
     ".github",
@@ -39,6 +42,7 @@ function assertDefaultProject() {
     "CHANGELOG.md",
     "repository-header.png",
     "scripts/syncVersion.js",
+    "scripts/verifyBuildArtifacts.js",
     "public/.well-known/agent-skills",
     "package-lock.json",
     "pnpm-lock.yaml",
@@ -106,7 +110,7 @@ function assertTrimmedProject() {
 }
 
 run("node", ["build.mjs"], { cwd: repoRoot });
-run("node", [path.join(repoRoot, "bin/index.js"), fixtureName, "--version", latestTag, "--no-install"], { cwd: fixtureRoot });
+run("node", [path.join(repoRoot, "bin/index.js"), fixtureName, "--version", boilerplateVersion, "--no-install"], { cwd: fixtureRoot });
 assertDefaultProject();
 await applyTrimmedFeatures();
 assertTrimmedProject();

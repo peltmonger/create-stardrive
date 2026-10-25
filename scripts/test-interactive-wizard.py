@@ -65,7 +65,7 @@ def main() -> None:
         env = os.environ | {
             "PATH": f"{fake_bin}:{os.environ['PATH']}",
             "TERM": "xterm",
-            "npm_config_user_agent": "npm/11.17.0 node/v26.4.0 darwin x64",
+            "npm_config_user_agent": "npm",
         }
         process = subprocess.Popen(
             ["node", str(REPO_ROOT / "bin/index.js"), "--version", "1.5.9", "--no-install"],

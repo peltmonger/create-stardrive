@@ -40,7 +40,7 @@ const result = spawnSync("script", args, {
     ...process.env,
     PATH: `${fakeBin}:${process.env.PATH}`,
     TERM: "xterm",
-    npm_config_user_agent: "npm/11.17.0 node/v26.4.0 darwin x64",
+    npm_config_user_agent: "npm",
   },
   input: `${projectName}\nn\nn\nn\nn\nn\n`,
   encoding: "utf8",

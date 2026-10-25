@@ -8,6 +8,7 @@ import type { PackageManager } from "./types.js";
 
 const TRIM_ENTRIES = [
   "scripts/syncVersion.js",
+  "scripts/verifyBuildArtifacts.js",
   ".ai/TRIMMING_GUIDE.md",
   "SECURITY.md",
   "CHANGELOG.md",
@@ -90,6 +91,7 @@ export function calibratePackageJson(
   if (pkg.scripts) {
     delete pkg.scripts["sync-version"];
     delete pkg.scripts["prebuild"];
+    delete pkg.scripts["check:artifacts"];
 
     if (pkg.scripts["fix"]) {
       pkg.scripts["fix"] = pkg.scripts["fix"].replace(

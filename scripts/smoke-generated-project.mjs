@@ -32,6 +32,11 @@ function assertDefaultProject() {
 
   const pkg = readPackageJson();
   assert.equal(pkg.name, fixtureName);
+  if (process.env.STARDRIVE_TEMPLATE_DIR) {
+    const candidate = JSON.parse(fs.readFileSync(path.join(process.env.STARDRIVE_TEMPLATE_DIR, "package.json"), "utf8"));
+    assert.equal(pkg.stardriveVersion, candidate.stardriveVersion, "smoke must use the candidate template, not the released baseline");
+    assert.equal(pkg.engines.node, candidate.engines.node, "generated sites must preserve the candidate Node policy");
+  }
   assert.equal(pkg.scripts["sync-version"], undefined);
   assert.equal(pkg.scripts.prebuild, undefined);
   assert.equal(pkg.scripts["check:artifacts"], undefined, "boilerplate-only artifact checks should not ship to generated sites");
@@ -110,8 +115,44 @@ function assertTrimmedProject() {
 }
 
 run("node", ["build.mjs"], { cwd: repoRoot });
-run("node", [path.join(repoRoot, "bin/index.js"), fixtureName, "--version", boilerplateVersion, "--no-install"], { cwd: fixtureRoot });
+if (process.env.STARDRIVE_TEMPLATE_DIR) {
+  // Test-only candidate source: keep release resolution and the shipped CLI unchanged.
+  const candidateDir = path.resolve(process.env.STARDRIVE_TEMPLATE_DIR);
+  fs.cpSync(candidateDir, fixtureDir, {
+    recursive: true,
+    filter: (source) => ![".git", "node_modules", "dist", ".astro", ".wrangler"].includes(path.basename(source)),
+  });
+  const runnerPath = path.join(fixtureRoot, "prepare-candidate.mjs");
+  await build({
+    bundle: true,
+    format: "esm",
+    outfile: runnerPath,
+    platform: "node",
+    stdin: {
+      contents: `import { trimProject, calibratePackageJson, calibrateGitignore, setAgentMode } from ${JSON.stringify(path.join(repoRoot, "src/scaffold.ts"))};
+        const target = process.argv[2];
+        trimProject(target);
+        calibratePackageJson(target, ${JSON.stringify(fixtureName)}, "npm");
+        calibrateGitignore(target, "npm");
+        setAgentMode(target);`,
+      loader: "ts",
+      resolveDir: repoRoot,
+    },
+  });
+  run("node", [runnerPath, fixtureDir]);
+} else {
+  run("node", [path.join(repoRoot, "bin/index.js"), fixtureName, "--version", boilerplateVersion, "--no-install"], { cwd: fixtureRoot });
+}
 assertDefaultProject();
+if (process.env.STARDRIVE_TEMPLATE_DIR && !process.argv.includes("--skip-install")) {
+  run("npm", ["install"], { cwd: fixtureDir });
+  run("npm", ["run", "check"], { cwd: fixtureDir });
+  run("npm", ["run", "build"], { cwd: fixtureDir });
+  // Restore a source-only tree before structural assertions and feature removal.
+  for (const entry of ["node_modules", "dist", ".astro", ".wrangler", "package-lock.json"]) {
+    fs.rmSync(path.join(fixtureDir, entry), { recursive: true, force: true });
+  }
+}
 await applyTrimmedFeatures();
 assertTrimmedProject();
 

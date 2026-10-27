@@ -35,6 +35,40 @@ jobs:
       - name: Smoke generated Stardrive project
         run: node scripts/smoke-generated-project.mjs ${{ matrix.os == 'windows-latest' && '--skip-install' || '' }}
 
+  candidate-template:
+    name: candidate template (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout starter
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: starter
+      - name: Checkout Stardrive security candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: peltmonger/stardrive
+          ref: ed870893888103e9f3ff91325e8b52a4f7682386
+          path: template
+          persist-credentials: false
+      - name: Set up patched Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: starter/.nvmrc
+          cache: npm
+          cache-dependency-path: starter/package-lock.json
+      - name: Install CLI dependencies
+        working-directory: starter
+        run: npm ci
+      - name: Smoke candidate generated projects
+        working-directory: starter
+        env:
+          STARDRIVE_TEMPLATE_DIR: ${{ github.workspace }}/template
+        run: node scripts/smoke-generated-project.mjs ${{ matrix.os == 'windows-latest' && '--skip-install' || '' }}
+
   macos-pty:
     name: PTY wizard - macOS Node 26
     runs-on: macos-latest
@@ -44,7 +78,7 @@ jobs:
       - name: Set up Node 26
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '26'
+          node-version: '26.12.1'
           cache: npm
       - name: Install CLI dependencies
         run: npm ci

@@ -36,22 +36,31 @@ jobs:
         run: node scripts/smoke-generated-project.mjs ${{ matrix.os == 'windows-latest' && '--skip-install' || '' }}
 
   candidate-template:
-    name: candidate template (${{ matrix.os }})
+    name: template ${{ matrix.template }} (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            template: candidate
+            ref: 0ac5844984adb1e9c0f9669a303f42708217481a
+          - os: windows-latest
+            template: candidate
+            ref: 0ac5844984adb1e9c0f9669a303f42708217481a
+          - os: ubuntu-latest
+            template: released-1.7.4
+            ref: e115cd69f9044d3a9b17f3a18b458a6efe09eee9
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout starter
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           path: starter
-      - name: Checkout Stardrive security candidate
+      - name: Checkout pinned Stardrive template
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: peltmonger/stardrive
-          ref: ed870893888103e9f3ff91325e8b52a4f7682386
+          ref: ${{ matrix.ref }}
           path: template
           persist-credentials: false
       - name: Set up patched Node
@@ -78,7 +87,7 @@ jobs:
       - name: Set up Node 26
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '26.12.1'
+          node-version: '26.13.1'
           cache: npm
       - name: Install CLI dependencies
         run: npm ci

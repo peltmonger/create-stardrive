@@ -2,7 +2,7 @@
 
 Launchpad to start the Astro Stardrive boilerplate.
 
-For current generated Astro projects, use patched Node 22.23.4+, 24.22.1+, or 26.12.1+. This repository pins Node 24.22.1 for development and CI. The CLI's own `>=18` engine declaration is separate from the generated project's Node requirement; generating a project does not upgrade your runtime.
+For the candidate Stardrive template, use patched Node 22.23.5+, 24.22.3+, or 26.13.1+. This repository pins Node 24.22.3 for development and CI. Released templates retain their own engine requirements until updated. The CLI's own `>=18` engine declaration is separate from the generated project's Node requirement; generating a project does not upgrade your runtime.
 
 It helps you getting Stardrive installed and also auto-adjusts some details for better fit.
 
